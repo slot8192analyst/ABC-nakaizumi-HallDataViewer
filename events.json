@@ -5,6 +5,12 @@
       "type": "new_machine",
       "media": "",
       "name": ["新台入替"]
+    },
+    {
+      "date": "2026_02_23",
+      "type": "new_machine",
+      "media": "DMM",
+      "name": ["BUZZ SLOT"]
     }
   ],
       "recurringEvents": [
