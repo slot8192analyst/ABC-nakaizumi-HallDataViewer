@@ -1,0 +1,128 @@
+// ===================
+// メイン初期化・タブ切り替え
+// ===================
+
+function setupFilterPanelToggle(toggleId, contentId) {
+    const toggle = document.getElementById(toggleId);
+    const content = document.getElementById(contentId);
+    
+    if (!toggle || !content) return;
+    
+    toggle.addEventListener('click', () => {
+        const icon = toggle.querySelector('.toggle-icon');
+        const isOpen = content.classList.contains('open');
+
+        if (isOpen) {
+            content.classList.remove('open');
+            toggle.classList.remove('open');
+            if (icon) icon.textContent = '▼';
+        } else {
+            content.classList.add('open');
+            toggle.classList.add('open');
+            if (icon) icon.textContent = '▲';
+        }
+    });
+}
+
+var compareTabInitialized = false;
+var tagmatchTabInitialized = false;
+
+function setupTabEventListeners() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            
+            var tabName = btn.dataset.tab;  // ← ここで定義
+            document.getElementById(tabName).classList.add('active');
+
+            if (tabName === 'calendar') {
+                renderCalendar();
+            } else if (tabName === 'trend') {
+                loadTrendData();
+            } else if (tabName === 'compare') {
+                if (!compareTabInitialized) {
+                    initCompareTab();
+                    compareTabInitialized = true;
+                }
+            } else if (tabName === 'tagmatch') {
+                if (!tagmatchTabInitialized) {
+                    setupTagMatchEventListeners();
+                    tagmatchTabInitialized = true;
+                }
+            } else if (tabName === 'island') {
+                // 島図タブの初期化
+                if (typeof IslandMap !== 'undefined' && typeof IslandMap.init === 'function') {
+                    IslandMap.init();
+                }
+            }
+        });
+    });
+}
+
+async function init() {
+    console.log('アプリケーション初期化開始...');
+    
+    const success = await loadInitialData();
+    
+    if (!success || CSV_FILES.length === 0) {
+        hideLoadingScreen();
+        document.getElementById('summary').innerHTML = 'データの読み込みに失敗しました';
+        return;
+    }
+
+    const sortedFiles = sortFilesByDate(CSV_FILES, true);
+    const latestParsed = parseDateFromFilename(sortedFiles[0]);
+    if (latestParsed) {
+        calendarYear = latestParsed.year;
+        calendarMonth = latestParsed.month;
+    } else {
+        const now = new Date();
+        calendarYear = now.getFullYear();
+        calendarMonth = now.getMonth() + 1;
+    }
+
+    await loadEventData();
+
+    populateDateSelectors();
+    populateMachineFilters();
+
+    setupTabEventListeners();
+    setupDailyEventListeners();
+    setupTrendEventListeners();
+    setupCompareEventListeners();
+    document.getElementById('trendViewMode')?.addEventListener('change', function() {
+        var machineValueTypeGroup = document.getElementById('machineValueTypeGroup');
+        if (machineValueTypeGroup) {
+            machineValueTypeGroup.style.display = this.value === 'machine' ? 'flex' : 'none';
+        }
+    });
+    setupCalendarEventListeners();
+
+    setupFilterPanelToggle('trendFilterToggle', 'trendFilterContent');
+    setupFilterPanelToggle('compareFilterToggle', 'compareFilterContent');
+
+    updateLoadingProgress(100, 100, '表示準備中...');
+    
+    await initDateSelectWithEvents();
+    await filterAndRender();
+    
+    hideLoadingScreen();
+    console.log('初期表示完了');
+    
+    setTimeout(() => {
+        loadRemainingDataInBackground();
+    }, 500);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+function populateMachineFilters() {
+    if (typeof initDailyMachineFilter === 'function') {
+        initDailyMachineFilter();
+    }
+    if (typeof initTrendMachineFilter === 'function') {
+        initTrendMachineFilter();
+    }
+}
